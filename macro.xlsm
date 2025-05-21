@@ -1,0 +1,99 @@
+Sub SendCustomStoreEmails()
+    Dim OutlookApp As Object
+    Dim OutlookMail As Object
+    Dim ws As Worksheet
+    Dim tbl As ListObject
+    Dim row As ListRow
+    Dim i As Long
+    Dim storeName As String
+    Dim storemanagerEmail As String
+    Dim areamanagerEmail As String
+    Dim coordEmail As String
+    Dim officeEmail As String
+    Dim pmEmail As String
+    Dim filePath As String
+    Dim toList As String
+    Dim ccList As String
+    Dim htmlBody As String
+    Dim excelPath As String
+    Dim pdfPath As String
+    Dim previousMonth As String
+    Dim previousMonthYear As String
+
+    Set ws = ThisWorkbook.Sheets("llista emails")
+    Set tbl = ws.ListObjects("taula_emails")
+    Set OutlookApp = CreateObject("Outlook.Application")
+
+    previousMonth = Format(DateAdd("m", -1, Date), "mmmm")
+    previousMonthYear = Format(DateAdd("m", -1, Date), "yyyy")
+
+    For Each row In tbl.ListRows
+        i = row.Index
+
+        storeName = tbl.DataBodyRange(i, 1).Value
+        storemanagerEmail = tbl.DataBodyRange(i, 2).Value
+        areamanagerEmail = tbl.DataBodyRange(i, 3).Value
+        coordEmail = tbl.DataBodyRange(i, 4).Value
+        officeEmail = tbl.DataBodyRange(i, 5).Value
+        pmEmail = tbl.DataBodyRange(i, 6).Value
+        filePath = tbl.DataBodyRange(i, 7).Value
+
+        ' Set file paths
+        excelPath = ThisWorkbook.Path & "\data\" & filePath & ".xlsx"
+        pdfPath = ThisWorkbook.Path & "\data\" & filePath & ".pdf"
+
+        ' Check if both files exist
+        If Dir(excelPath) = "" Or Dir(pdfPath) = "" Then
+            MsgBox "No es poden enviar els arxius per a la fila " & i & " perquè falten els següents arxius:" & vbNewLine & _
+                   IIf(Dir(excelPath) = "", "- Excel: " & excelPath & vbNewLine, "") & _
+                   IIf(Dir(pdfPath) = "", "- PDF: " & pdfPath, ""), vbExclamation
+            GoTo NextIteration
+        End If
+
+        ' Create toList and ccList
+        toList = storemanagerEmail & ";" & areamanagerEmail & ";"
+        ccList = ""
+
+        If coordEmail <> "" Then ccList = ccList & coordEmail & ";"
+        If officeEmail <> "" Then ccList = ccList & officeEmail & ";"
+        If pmEmail <> "" Then ccList = ccList & pmEmail & ";"
+
+        If toList = "" Then GoTo NextIteration
+
+        ' Create mail item
+        Set OutlookMail = OutlookApp.CreateItem(0)
+
+        ' Build HTML Body
+        htmlBody = "<html><head><style>" & _
+                   "body { font-family:Arial; font-size:12pt; }" & _
+                   "table { border-collapse:collapse; }" & _
+                   "th, td { border:1px solid #ccc; padding:5px; }" & _
+                   "</style></head><body>"
+        htmlBody = htmlBody & "<h2>Informe de Tienda - " & storeName & " - " & previousMonthYear & "/" & previousMonth & "</h2>"
+        htmlBody = htmlBody & "<p>Estimado Equipo,</p>"
+        htmlBody = htmlBody & "<p>Adjunto encontrarán el informe de la tienda <strong>" & storeName & "</strong> para el mes de " & previousMonth & " del año " & previousMonthYear & ".</p>"
+        htmlBody = htmlBody & "<p>Saludos,</p>"
+        htmlBody = htmlBody & "<p>Just Sala</p>"
+        htmlBody = htmlBody & "</body></html>"
+
+        With OutlookMail
+            .To = toList
+            .CC = ccList
+            .Subject = "Informe de Tienda " & storeName & " - " & previousMonthYear & "/" & previousMonth
+            .HTMLBody = htmlBody
+
+            ' Attach Excel file
+            .Attachments.Add excelPath
+
+            ' Attach PDF file
+            .Attachments.Add pdfPath
+
+            ' .Display
+            .Send
+        End With
+
+NextIteration:
+    Next i
+
+    MsgBox "Procés d'enviament d'emails completat.", vbInformation
+End Sub
